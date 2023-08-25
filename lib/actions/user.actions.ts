@@ -21,7 +21,7 @@ export async function updateUser({
   name,
   bio,
   image,
-  path
+  path,
 }: Params): Promise<void> {
   connectToDB();
 
@@ -42,26 +42,21 @@ export async function updateUser({
       revalidatePath(path);
     }
   } catch (error: any) {
-    throw new Error(`Failed to create/update user: ${error.message}.`)
-    
+    throw new Error(`Failed to create/update user: ${error.message}.`);
   }
-
 }
 
 export async function fetchUser(userId: string) {
   try {
     connectToDB();
 
-    return await User.
-    findOne({ id: userId })
+    return await User.findOne({ id: userId });
     // .populate({
     //   path: 'communities',
     //   model: Community
     // })
-    
   } catch (error: any) {
-    throw new Error(`Failed to fetch user: ${error.message}.`)
-    
+    throw new Error(`Failed to fetch user: ${error.message}.`);
   }
 }
 
@@ -70,26 +65,23 @@ export async function fetchUserPosts(userId: string) {
     connectToDB();
 
     //Find all threads authored by user with the given userId
-    const threads = await User.findOne({ id: userId })
-    .populate({
-      path: 'threads',
+    const threads = await User.findOne({ id: userId }).populate({
+      path: "threads",
       model: Thread,
       populate: {
-        path: 'children',
+        path: "children",
         model: Thread,
         populate: {
-          path: 'author',
+          path: "author",
           model: User,
-          select: 'name image id'
-        }
-      }
-    })
+          select: "name image id",
+        },
+      },
+    });
 
     return threads;
-    
   } catch (error: any) {
-    throw new Error(`Failed to fetch user posts: ${error.message}`)
-    
+    throw new Error(`Failed to fetch user posts: ${error.message}`);
   }
 }
 
@@ -114,10 +106,10 @@ export async function fetchUsers({
     const regex = new RegExp(searchString, "i");
 
     const query: FilterQuery<typeof User> = {
-      id: { $ne: userId }
-    }
+      id: { $ne: userId },
+    };
 
-    if (searchString.trim() !== '') {
+    if (searchString.trim() !== "") {
       query.$or = [
         { username: { $regex: regex } },
         { name: { $regex: regex } },
@@ -127,9 +119,9 @@ export async function fetchUsers({
     const sortOptions = { createdAt: sortBy };
 
     const usersQuery = User.find(query)
-    .sort(sortOptions)
-    .skip(skipAmount)
-    .limit(pageSize);
+      .sort(sortOptions)
+      .skip(skipAmount)
+      .limit(pageSize);
 
     const totalUsersCount = await User.countDocuments(query);
 
@@ -137,9 +129,36 @@ export async function fetchUsers({
 
     const isNext = totalUsersCount > skipAmount + users.length;
 
-    return { users, isNext};
-
+    return { users, isNext };
   } catch (error: any) {
-    throw new Error(`Failed to fetch users: ${error.message}`)
+    throw new Error(`Failed to fetch users: ${error.message}`);
+  }
+}
+
+export async function getActivity(userId: string) {
+  try {
+    connectToDB();
+
+    //find all threads created by user
+    const userThreads = await Thread.find({ author: userId });
+
+    //collect all the child thread ids (replies) from the 'children' field
+
+    const childThreadIds = userThreads.reduce((acc, userThread) => {
+      return acc.concat(userThread.children);
+    }, []);
+
+    const replies = await Thread.find({
+      _id: { $in: childThreadIds },
+      author: { $ne: userId },
+    }).populate({
+      path: "author",
+      model: User,
+      select: "name image _id",
+    });
+
+    return replies;
+  } catch (error: any) {
+    throw new Error(`Failed to fetch activity ${error.message}`);
   }
 }

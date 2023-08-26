@@ -24,7 +24,7 @@ export default async function Home() {
                 content={post.text}
                 author={post.author}
                 community={post.community}
-                createdAt={post.createdA}
+                createdAt={post.createdAt}
                 comments={post.children}
               />
             ))}
